@@ -6,8 +6,6 @@
 
 一键浏览和管理你所有已安装的 Claude Code 技能、代理和命令。
 
-![Feature Menu Preview](https://raw.githubusercontent.com/ryushowtime/feature-menu/main/docs/preview.png)
-
 ## 功能特点
 
 - **技能浏览** - 查看所有已安装的技能、代理和命令
