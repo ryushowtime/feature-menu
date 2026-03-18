@@ -63,10 +63,62 @@ function getClaudeCodeRoot(): string {
   return fallback
 }
 
+// 动态获取根目录
+function getClaudeCodeRoot(): string {
+  const detected = detectClaudeCodeRoot()
+  if (detected) {
+    console.log(`[Feature Menu] 检测到 Claude Code 目录: ${detected}`)
+    return detected
+  }
+
+  // 回退到默认路径（相对于项目目录）
+  const fallback = path.join(process.cwd(), '../..')
+  console.warn(`[Feature Menu] 未检测到 Claude Code 目录，使用默认路径: ${fallback}`)
+  return fallback
+}
+
 const CLAUDE_CODE_ROOT = getClaudeCodeRoot()
+
+// Skills 目录
 const SKILLS_ROOT = path.join(CLAUDE_CODE_ROOT, 'skills')
-const AGENTS_ROOT = path.join(CLAUDE_CODE_ROOT, 'agents')
-const COMMANDS_ROOT = path.join(CLAUDE_CODE_ROOT, 'commands')
+
+// Agents 目录 - 支持多个可能的位置
+function getAgentsRoot(): string {
+  const homeDir = os.homedir()
+  const possiblePaths = [
+    path.join(CLAUDE_CODE_ROOT, 'agents'),
+    path.join(homeDir, '.claude', 'agents'),
+    path.join(homeDir, '.claude', 'agents-ecc'),
+  ]
+  for (const p of possiblePaths) {
+    try {
+      fsSync.accessSync(p)
+      return p
+    } catch { /* continue */ }
+  }
+  return possiblePaths[0] // 返回第一个作为默认值
+}
+
+// Commands 目录 - 支持多个可能的位置
+function getCommandsRoot(): string {
+  const homeDir = os.homedir()
+  const possiblePaths = [
+    path.join(CLAUDE_CODE_ROOT, 'commands'),
+    path.join(CLAUDE_CODE_ROOT, 'commands-ecc'),
+    path.join(homeDir, '.claude', 'commands'),
+    path.join(homeDir, '.claude', 'commands-ecc'),
+  ]
+  for (const p of possiblePaths) {
+    try {
+      fsSync.accessSync(p)
+      return p
+    } catch { /* continue */ }
+  }
+  return possiblePaths[0] // 返回第一个作为默认值
+}
+
+const AGENTS_ROOT = getAgentsRoot()
+const COMMANDS_ROOT = getCommandsRoot()
 
 // 缓存机制
 interface CacheEntry<T> {

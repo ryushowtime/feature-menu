@@ -1,5 +1,7 @@
 import { promises as fs } from 'fs'
+import * as fsSync from 'fs'
 import path from 'path'
+import os from 'os'
 import {
   Skill,
   Agent,
@@ -12,9 +14,105 @@ import {
   getLevel,
 } from './types'
 
-const SKILLS_ROOT = path.join(process.cwd(), '../../skills')
-const AGENTS_ROOT = path.join(process.cwd(), '../../agents')
-const COMMANDS_ROOT = path.join(process.cwd(), '../../commands')
+// 智能路径检测 - 支持多种 Claude Code 安装方式
+function detectClaudeCodeRoot(): string | null {
+  // 1. 环境变量
+  if (process.env.CLAUDE_CODE_ROOT) {
+    return process.env.CLAUDE_CODE_ROOT
+  }
+
+  const homeDir = os.homedir()
+
+  // 2. 常见路径列表
+  const commonPaths = [
+    path.join(homeDir, 'everything-claude-code'),
+    path.join(homeDir, '.claude'),
+    path.join(homeDir, 'Claude Code'),
+    path.join(homeDir, 'claude-code'),
+  ]
+
+  for (const p of commonPaths) {
+    try {
+      const skillsPath = path.join(p, 'skills')
+      fsSync.accessSync(skillsPath)
+      return p
+    } catch {
+      // 路径不存在，继续检查下一个
+    }
+  }
+
+  // 3. 当前目录向上搜索（最多向上 4 层）
+  let searchDir = process.cwd()
+  for (let i = 0; i < 4; i++) {
+    const skillsPath = path.join(searchDir, 'skills')
+    try {
+      fsSync.accessSync(skillsPath)
+      return searchDir
+    } catch {
+      const parent = path.dirname(searchDir)
+      if (parent === searchDir) break
+      searchDir = parent
+    }
+  }
+
+  return null
+}
+
+// 动态获取根目录
+function getClaudeCodeRoot(): string {
+  const detected = detectClaudeCodeRoot()
+  if (detected) {
+    console.log(`[Feature Menu] 检测到 Claude Code 目录: ${detected}`)
+    return detected
+  }
+
+  const fallback = path.join(process.cwd(), '../..')
+  console.warn(`[Feature Menu] 未检测到 Claude Code 目录，使用默认路径: ${fallback}`)
+  return fallback
+}
+
+const CLAUDE_CODE_ROOT = getClaudeCodeRoot()
+
+// Skills 目录
+const SKILLS_ROOT = path.join(CLAUDE_CODE_ROOT, 'skills')
+
+// Agents 目录 - 支持多个可能的位置
+function getAgentsRoot(): string {
+  const homeDir = os.homedir()
+  const possiblePaths = [
+    path.join(CLAUDE_CODE_ROOT, 'agents'),
+    path.join(homeDir, '.claude', 'agents'),
+    path.join(homeDir, '.claude', 'agents-ecc'),
+  ]
+  for (const p of possiblePaths) {
+    try {
+      fsSync.accessSync(p)
+      return p
+    } catch { /* continue */ }
+  }
+  return possiblePaths[0]
+}
+
+// Commands 目录 - 支持多个可能的位置
+function getCommandsRoot(): string {
+  const homeDir = os.homedir()
+  const possiblePaths = [
+    path.join(CLAUDE_CODE_ROOT, 'commands'),
+    path.join(CLAUDE_CODE_ROOT, 'commands-ecc'),
+    path.join(homeDir, '.claude', 'commands'),
+    path.join(homeDir, '.claude', 'commands-ecc'),
+  ]
+  for (const p of possiblePaths) {
+    try {
+      fsSync.accessSync(p)
+      return p
+    } catch { /* continue */ }
+  }
+  return possiblePaths[0]
+}
+
+const AGENTS_ROOT = getAgentsRoot()
+const COMMANDS_ROOT = getCommandsRoot()
 
 // 缓存机制
 interface CacheEntry<T> {
