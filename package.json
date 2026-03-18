@@ -1,0 +1,35 @@
+{
+  "name": "feature-menu",
+  "version": "1.0.0",
+  "description": "Claude Code 功能中心 - 浏览和管理已安装的技能、代理和命令",
+  "author": "ryushowtime",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ryushowtime/feature-menu"
+  },
+  "homepage": "https://github.com/ryushowtime/feature-menu#readme",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "bin": {
+    "feature-menu": "./bin/feature-menu.js"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.4.0"
+  }
+}
