@@ -25,8 +25,6 @@ export default function RecentDropdown({ recentSkills, onSkillClick }: RecentDro
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-  if (recentSkills.length === 0) return null
-
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -45,7 +43,12 @@ export default function RecentDropdown({ recentSkills, onSkillClick }: RecentDro
           </div>
 
           <div className="max-h-80 overflow-y-auto">
-            {recentSkills.map(skill => (
+            {recentSkills.length === 0 ? (
+              <div className="px-4 py-8 text-center text-slate-400 text-sm">
+                暂无使用记录
+              </div>
+            ) : (
+              recentSkills.map(skill => (
               <div
                 key={skill.id}
                 className="relative"
@@ -74,7 +77,8 @@ export default function RecentDropdown({ recentSkills, onSkillClick }: RecentDro
                   </div>
                 )}
               </div>
-            ))}
+            ))
+            )}
           </div>
         </div>
       )}
