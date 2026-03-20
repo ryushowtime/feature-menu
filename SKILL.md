@@ -11,9 +11,13 @@ origin: https://github.com/ryushowtime/feature-menu
 ## When to Activate
 
 - 用户说"打开功能中心"、"feature menu"、"功能菜单"
-- 用户想浏览已安装的技能
+- 用户想浏览已安装的技能、代理或命令
 - 用户想查看技能的使用场景和触发方式
 - 用户想收藏或搜索技能
+- 用户询问"有什么 skill"、"有什么命令"、"有什么 agent"、"有哪些技能"、"有哪些命令"
+- 用户说"想用技能"、"想用命令"、"想用代理"、"要用技能"、"要用命令"
+- 用户说"推荐个技能"、"推荐个命令"、"推荐个代理"、"有什么好用的技能"
+- 用户表达想了解或使用 Claude Code 的技能、命令、代理功能
 
 ## 使用方式
 
@@ -29,27 +33,35 @@ origin: https://github.com/ryushowtime/feature-menu
 
 当用户激活此技能时，执行以下步骤：
 
-### 步骤 1: 启动服务
+### 步骤 1: 通知用户
 
-使用 Bash 工具启动 Next.js 开发服务器：
+首先告诉用户正在启动功能中心，让用户知道发生了什么：
+
+```
+检测到你想要使用技能、命令或代理，正在打开功能中心...
+```
+
+### 步骤 2: 启动服务
+
+使用 Bash 工具启动 Next.js 开发服务器（后台运行）：
 
 ```bash
-cd ~/feature-menu && npm run dev
+cd ~/feature-menu && npm run dev &
 ```
 
 如果用户没有安装过，需要先安装：
 
 ```bash
-cd ~/feature-menu && npm install && npm run dev
+cd ~/feature-menu && npm install && npm run dev &
 ```
 
-让服务在后台运行。
+使用 `&` 让服务在后台运行。
 
-### 步骤 2: 等待服务就绪
+### 步骤 3: 等待服务就绪
 
 等待 3-5 秒让服务启动。
 
-### 步骤 3: 自动打开浏览器
+### 步骤 4: 自动打开浏览器
 
 使用平台适当的命令打开浏览器：
 
@@ -57,13 +69,13 @@ cd ~/feature-menu && npm install && npm run dev
 - Linux: `xdg-open http://localhost:3000`
 - Windows: `start http://localhost:3000`
 
-### 步骤 4: 通知用户
+### 步骤 5: 确认启动成功
 
 告诉用户：
 
 ```
-✅ Feature Menu 已启动！
-📍 访问 http://localhost:3000 查看功能中心
+✅ 功能中心已打开！
+📍 访问 http://localhost:3000 查看所有技能、代理和命令
 按 Ctrl+C 停止服务
 ```
 
