@@ -1,12 +1,13 @@
-import { getSkills, getAgents, getCommands } from '@/lib/api'
-import ClientPage from './ClientPage'
+'use client';
 
-export default async function Page() {
-  const [skills, agents, commands] = await Promise.all([
-    getSkills(),
-    getAgents(),
-    getCommands(),
-  ])
+import { Onboarding } from './Onboarding';
+import { Dashboard } from './pages/Dashboard';
 
-  return <ClientPage skills={skills} agents={agents} commands={commands} />
+export default function Page() {
+  return (
+    <>
+      <Dashboard />
+      <Onboarding />
+    </>
+  );
 }

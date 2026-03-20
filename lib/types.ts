@@ -1,45 +1,34 @@
-// 技能数据结构
+export type SkillCategory = 'framework' | 'database' | 'testing' | 'workflow' | 'business' | 'devops' | 'security' | 'language' | 'other';
+export type SkillDifficulty = 'Newbie' | 'Intermediate' | 'Advanced';
+export type SkillLevel = 'newbie' | 'intermediate' | 'advanced';
+
 export interface Skill {
-  id: string
-  name: string
-  description: string
-  origin: string
-  category: SkillCategory
-  level: SkillLevel
-  whenToUse: string[]
-  workflow?: string
-  relatedSkills?: string[]
-  filePath: string
+  id: string;
+  name: string;
+  description: string;
+  category: SkillCategory;
+  difficulty: SkillDifficulty;
+  whenToUse: string;
+  command: string;
+  related: string[];
+  filePath?: string;
 }
 
 export interface Agent {
-  id: string
-  name: string
-  description: string
-  tools: string[]
-  model: string
-  filePath: string
+  id: string;
+  name: string;
+  description: string;
+  tools: string[];
+  model: string;
+  filePath?: string;
 }
 
 export interface Command {
-  id: string
-  name: string
-  description: string
-  filePath: string
+  id: string;
+  name: string;
+  description: string;
+  filePath?: string;
 }
-
-export type SkillCategory =
-  | 'framework'      // 开发框架
-  | 'database'       // 数据库
-  | 'testing'        // 测试
-  | 'workflow'      // 工作流
-  | 'business'       // 商业内容
-  | 'devops'         // 运维部署
-  | 'security'       // 安全
-  | 'language'        // 编程语言
-  | 'other'           // 其他
-
-export type SkillLevel = 'newbie' | 'intermediate' | 'advanced'
 
 // 分类映射 - 根据技能名称关键词分类
 const categoryKeywords: Record<SkillCategory, string[]> = {
@@ -78,44 +67,54 @@ const categoryKeywords: Record<SkillCategory, string[]> = {
     'rust', 'ruby', 'php', 'kotlin', 'scala', 'r', 'matlab', 'dart', 'go'
   ],
   other: [],
-}
+};
 
 // 分类映射 - 根据技能名称判断分类
 export function getCategory(name: string): SkillCategory {
-  const lowerName = name.toLowerCase()
+  const lowerName = name.toLowerCase();
 
   for (const [category, keywords] of Object.entries(categoryKeywords)) {
-    if (category === 'other') continue
+    if (category === 'other') continue;
     for (const keyword of keywords) {
       if (lowerName.includes(keyword)) {
-        return category as SkillCategory
+        return category as SkillCategory;
       }
     }
   }
 
-  return 'other'
+  return 'other';
 }
 
 // 根据名称判断难度等级
 export function getLevel(name: string): SkillLevel {
-  const newbieKeywords = ['basic', 'intro', 'start', 'beginner', 'getting-started']
-  const advancedKeywords = ['advanced', 'expert', 'master', 'pro', 'security', 'optimization']
+  const newbieKeywords = ['basic', 'intro', 'start', 'beginner', 'getting-started'];
+  const advancedKeywords = ['advanced', 'expert', 'master', 'pro', 'security', 'optimization'];
 
-  const lowerName = name.toLowerCase()
+  const lowerName = name.toLowerCase();
 
   for (const keyword of advancedKeywords) {
     if (lowerName.includes(keyword)) {
-      return 'advanced'
+      return 'advanced';
     }
   }
 
   for (const keyword of newbieKeywords) {
     if (lowerName.includes(keyword)) {
-      return 'newbie'
+      return 'newbie';
     }
   }
 
-  return 'intermediate'
+  return 'intermediate';
+}
+
+// 将 level 转换为 difficulty
+export function levelToDifficulty(level: SkillLevel): SkillDifficulty {
+  const map: Record<SkillLevel, SkillDifficulty> = {
+    newbie: 'Newbie',
+    intermediate: 'Intermediate',
+    advanced: 'Advanced',
+  };
+  return map[level];
 }
 
 // 分类显示名称
@@ -129,14 +128,14 @@ export const categoryNames: Record<SkillCategory, string> = {
   security: '安全',
   language: '编程语言',
   other: '其他',
-}
+};
 
 // 等级显示名称
 export const levelNames: Record<SkillLevel, string> = {
   newbie: '新手',
   intermediate: '进阶',
   advanced: '高级',
-}
+};
 
 // 分类图标
 export const categoryIcons: Record<SkillCategory, string> = {
@@ -149,19 +148,19 @@ export const categoryIcons: Record<SkillCategory, string> = {
   security: '🔒',
   language: '💻',
   other: '📦',
-}
+};
 
 // 技能统计数据
 export interface SkillStats {
-  total: number
-  byCategory: Record<SkillCategory, number>
-  byLevel: Record<SkillLevel, number>
+  total: number;
+  byCategory: Record<SkillCategory, number>;
+  byLevel: Record<SkillLevel, number>;
 }
 
 // 搜索结果
 export interface SearchResult {
-  skills: Skill[]
-  agents: Agent[]
-  commands: Command[]
-  total: number
+  skills: Skill[];
+  agents: Agent[];
+  commands: Command[];
+  total: number;
 }
