@@ -30,7 +30,7 @@ const DIFFICULTY_COLORS = {
 } as const;
 
 export function Skills() {
-  const { skills, state, toggleFavorite, recordUsage } = useStore();
+  const { skills, state, toggleFavorite, mergedUsageCount } = useStore();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<SkillCategory | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'usage'>('name');
@@ -67,14 +67,14 @@ export function Skills() {
       if (sortBy === 'name') {
         return a.name.localeCompare(b.name);
       } else {
-        const usageA = state.usageCount[a.id] || 0;
-        const usageB = state.usageCount[b.id] || 0;
+        const usageA = mergedUsageCount[a.id] || 0;
+        const usageB = mergedUsageCount[b.id] || 0;
         return usageB - usageA;
       }
     });
 
     return result;
-  }, [skills, search, activeCategory, sortBy, state.usageCount]);
+  }, [skills, search, activeCategory, sortBy, mergedUsageCount]);
 
   const handleFavorite = (e: React.MouseEvent, skillId: string) => {
     e.stopPropagation();
@@ -87,9 +87,13 @@ export function Skills() {
     }
   };
 
-  const handleUseSkill = (skill: Skill) => {
-    recordUsage(skill.id);
-    toast.success("使用记录已保存", { description: skill.command });
+  const handleUseSkill = async (skill: Skill) => {
+    await navigator.clipboard.writeText(skill.command);
+
+    toast.success("已复制技能，去 Claude Code 中使用", {
+      description: skill.command,
+    });
+
     setSelectedSkill(null);
   };
 
@@ -212,7 +216,7 @@ export function Skills() {
                       {skill.command}
                     </code>
                     <span className="text-xs text-muted-foreground font-medium">
-                      使用次数：{state.usageCount[skill.id] || 0}
+                      使用次数：{mergedUsageCount[skill.id] || 0}
                     </span>
                   </div>
                 </GlowCard>

@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Skill, Agent, Command } from '../lib/types';
+import { loadClaudeUsageData, mergeUsageCount } from '../lib/claude-usage';
 
 export interface AppState {
   favorites: string[]; // Skill IDs
-  usageCount: Record<string, number>; // Skill ID -> count
+  usageCount: Record<string, number>; // Skill ID -> count (local only)
   hasSeenOnboarding: boolean;
 }
 
@@ -32,6 +33,7 @@ export const useStore = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [commands, setCommands] = useState<Command[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [claudeUsageCount, setClaudeUsageCount] = useState<Record<string, number>>({});
 
   // Load scanned data on mount
   useEffect(() => {
@@ -52,6 +54,26 @@ export const useStore = () => {
       }
     };
     loadData();
+  }, []);
+
+  // Load Claude Code usage data from hook-collected stats
+  useEffect(() => {
+    const loadClaudeUsage = async () => {
+      try {
+        const response = await fetch('/api/usage');
+        if (response.ok) {
+          const data = await response.json();
+          setClaudeUsageCount(data.stats || {});
+        }
+      } catch (error) {
+        console.error('Failed to load Claude usage:', error);
+      }
+    };
+    loadClaudeUsage();
+
+    // Poll for updates every 30 seconds
+    const interval = setInterval(loadClaudeUsage, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Persist state to localStorage
@@ -85,11 +107,15 @@ export const useStore = () => {
     setState(prev => ({ ...prev, hasSeenOnboarding: true }));
   }, []);
 
-  // Derived state
+  // Derived state - merge local and Claude Code usage counts
+  const mergedUsageCount = useMemo(() => {
+    return mergeUsageCount(state.usageCount, claudeUsageCount);
+  }, [state.usageCount, claudeUsageCount]);
+
   const favoriteSkills = skills.filter(s => state.favorites.includes(s.id));
   const recentlyUsed = skills
-    .filter(s => state.usageCount[s.id] > 0)
-    .sort((a, b) => (state.usageCount[b.id] || 0) - (state.usageCount[a.id] || 0))
+    .filter(s => mergedUsageCount[s.id] > 0)
+    .sort((a, b) => (mergedUsageCount[b.id] || 0) - (mergedUsageCount[a.id] || 0))
     .slice(0, 5);
 
   return {
@@ -103,5 +129,7 @@ export const useStore = () => {
     completeOnboarding,
     favoriteSkills,
     recentlyUsed,
+    mergedUsageCount,
+    claudeUsageCount,
   };
 };
