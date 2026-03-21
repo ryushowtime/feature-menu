@@ -10,6 +10,7 @@ import {
   Terminal,
   Sparkles,
   HelpCircle,
+  BarChart2,
 } from 'lucide-react';
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { name: '技能', href: '/skills', icon: BookOpen },
   { name: '代理', href: '/agents', icon: Bot },
   { name: '命令', href: '/commands', icon: Terminal },
+  { name: '统计', href: '/stats', icon: BarChart2 },
 ];
 
 const bottomItems = [

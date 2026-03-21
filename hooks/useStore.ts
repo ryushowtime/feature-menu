@@ -2,29 +2,42 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Skill, Agent, Command } from '../lib/types';
-import { loadClaudeUsageData, mergeUsageCount } from '../lib/claude-usage';
+
+// Merge local and Claude Code usage counts
+function mergeUsageCount(
+  local: Record<string, number>,
+  claude: Record<string, number>
+): Record<string, number> {
+  const merged = { ...local };
+  for (const [skillId, count] of Object.entries(claude)) {
+    merged[skillId] = (merged[skillId] || 0) + count;
+  }
+  return merged;
+}
 
 export interface AppState {
   favorites: string[]; // Skill IDs
   usageCount: Record<string, number>; // Skill ID -> count (local only)
   hasSeenOnboarding: boolean;
+  isHookEnabled: boolean; // Whether to track usage via hook
 }
 
 const STORAGE_KEY = 'claude-code-feature-menu-v1';
 
 const getInitialState = (): AppState => {
   if (typeof window === 'undefined') {
-    return { favorites: [], usageCount: {}, hasSeenOnboarding: false };
+    return { favorites: [], usageCount: {}, hasSeenOnboarding: false, isHookEnabled: true };
   }
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      return { ...parsed, isHookEnabled: parsed.isHookEnabled ?? true };
     } catch (e) {
       console.error('Failed to parse state', e);
     }
   }
-  return { favorites: [], usageCount: {}, hasSeenOnboarding: false };
+  return { favorites: [], usageCount: {}, hasSeenOnboarding: false, isHookEnabled: true };
 };
 
 export const useStore = () => {
@@ -107,16 +120,36 @@ export const useStore = () => {
     setState(prev => ({ ...prev, hasSeenOnboarding: true }));
   }, []);
 
+  const toggleHook = useCallback(() => {
+    setState(prev => ({ ...prev, isHookEnabled: !prev.isHookEnabled }));
+  }, []);
+
   // Derived state - merge local and Claude Code usage counts
   const mergedUsageCount = useMemo(() => {
     return mergeUsageCount(state.usageCount, claudeUsageCount);
   }, [state.usageCount, claudeUsageCount]);
 
   const favoriteSkills = skills.filter(s => state.favorites.includes(s.id));
+
+  // Create an array with usage counts for charts and ranking
+  const skillsWithUsage = skills.map(s => ({
+    ...s,
+    usage: mergedUsageCount[s.id] || 0
+  }));
+
   const recentlyUsed = skills
     .filter(s => mergedUsageCount[s.id] > 0)
     .sort((a, b) => (mergedUsageCount[b.id] || 0) - (mergedUsageCount[a.id] || 0))
     .slice(0, 5);
+
+  // Top skills sorted by usage (for stats page)
+  const topSkills = [...skillsWithUsage]
+    .filter(s => s.usage > 0)
+    .sort((a, b) => b.usage - a.usage)
+    .slice(0, 20);
+
+  // Total usage count across all skills
+  const totalUsageCount = Object.values(mergedUsageCount).reduce((acc, curr) => acc + curr, 0);
 
   return {
     state,
@@ -127,8 +160,12 @@ export const useStore = () => {
     toggleFavorite,
     recordUsage,
     completeOnboarding,
+    toggleHook,
     favoriteSkills,
     recentlyUsed,
+    topSkills,
+    skillsWithUsage,
+    totalUsageCount,
     mergedUsageCount,
     claudeUsageCount,
   };

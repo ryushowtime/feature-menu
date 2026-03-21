@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '../../hooks/useStore';
 import { GlowCard, Badge, Button } from '../../components/ui';
@@ -10,17 +11,27 @@ import {
   Star,
   Clock,
   Sparkles,
+  Activity,
+  TrendingUp,
 } from 'lucide-react';
 
 export function Dashboard() {
+  const [mounted, setMounted] = useState(false);
   const {
     skills,
     agents,
     commands,
     recentlyUsed,
     favoriteSkills,
+    topSkills,
+    totalUsageCount,
   } = useStore();
   const router = useRouter();
+
+  // Avoid hydration mismatch - only render dynamic content after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="flex-1 overflow-y-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -33,28 +44,34 @@ export function Dashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard
+          title="总使用量"
+          value={mounted ? totalUsageCount : 0}
+          icon={Activity}
+          onClick={() => router.push('/stats')}
+        />
         <StatsCard
           title="技能总数"
-          value={skills.length}
+          value={mounted ? skills.length : 0}
           icon={BookOpen}
           onClick={() => router.push('/skills')}
         />
         <StatsCard
           title="活跃代理"
-          value={agents.length}
+          value={mounted ? agents.length : 0}
           icon={Bot}
           onClick={() => router.push('/agents')}
         />
         <StatsCard
           title="命令"
-          value={commands.length}
+          value={mounted ? commands.length : 0}
           icon={Terminal}
           onClick={() => router.push('/commands')}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recently Used */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -64,7 +81,7 @@ export function Dashboard() {
             </h2>
           </div>
 
-          {recentlyUsed.length > 0 ? (
+          {mounted && recentlyUsed.length > 0 ? (
             <div className="space-y-3">
               {recentlyUsed.map((skill) => (
                 <GlowCard
@@ -77,7 +94,7 @@ export function Dashboard() {
                       <BookOpen className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium text-sm text-foreground">
+                      <p className="font-medium text-sm text-foreground flex items-center gap-2">
                         {skill.name}
                       </p>
                       <p className="text-xs text-muted-foreground truncate max-w-[200px]">
@@ -85,9 +102,13 @@ export function Dashboard() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant="primary">
-                    {skill.category}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge variant="primary">{skill.category}</Badge>
+                    <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                      <Activity className="h-3 w-3" />
+                      {skill.usage} 次
+                    </span>
+                  </div>
                 </GlowCard>
               ))}
             </div>
@@ -105,6 +126,53 @@ export function Dashboard() {
               >
                 浏览技能
               </Button>
+            </GlowCard>
+          )}
+        </div>
+
+        {/* Top Skills */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-medium flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-success" />
+              最常用
+            </h2>
+          </div>
+
+          {mounted && topSkills.length > 0 ? (
+            <div className="space-y-3">
+              {topSkills.slice(0, 5).map((skill, index) => (
+                <GlowCard
+                  key={skill.id}
+                  className="p-4 flex items-center justify-between"
+                  onClick={() => router.push('/skills')}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center border border-success/20">
+                      <span className="text-success font-bold text-sm">#{index + 1}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm text-foreground">
+                        {skill.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                        {skill.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-sm font-bold text-success">{skill.usage}</span>
+                    <span className="text-[10px] text-muted-foreground">次</span>
+                  </div>
+                </GlowCard>
+              ))}
+            </div>
+          ) : (
+            <GlowCard interactive={false} className="p-8 flex flex-col items-center justify-center text-center border-dashed border-border/50">
+              <TrendingUp className="h-8 w-8 text-muted-foreground mb-3 opacity-50" />
+              <p className="text-sm text-muted-foreground">
+                暂无使用数据。
+              </p>
             </GlowCard>
           )}
         </div>
