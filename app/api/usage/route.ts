@@ -18,11 +18,20 @@ function getClaudeCodeRoot(): string {
   }
   const homeDir = os.homedir();
   const commonPaths = [
-    path.join(homeDir, 'everything-claude-code'),
     path.join(homeDir, '.claude'),
+    path.join(homeDir, 'everything-claude-code'),
     path.join(homeDir, 'Claude Code'),
     path.join(homeDir, 'claude-code'),
   ];
+  // Find the directory containing skills-usage.json
+  for (const p of commonPaths) {
+    try {
+      const usageFile = path.join(p, 'skills-usage.json');
+      fsSync.accessSync(usageFile);
+      return p;
+    } catch { /* continue */ }
+  }
+  // Fallback: find by skills subdirectory
   for (const p of commonPaths) {
     try {
       const skillsPath = path.join(p, 'skills');

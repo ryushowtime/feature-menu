@@ -2,81 +2,87 @@ import { promises as fs } from 'fs';
 import * as fsSync from 'fs';
 import path from 'path';
 import os from 'os';
-import { Skill, Agent, Command, SkillCategory, SkillDifficulty, getCategory, getLevel, levelToDifficulty } from './types';
+import { Skill, Agent, Command, getCategory, getLevel, levelToDifficulty } from './types';
 
-// 智能路径检测 - 支持多种 Claude Code 安装方式
-function detectClaudeCodeRoot(): string | null {
-  // 1. 环境变量
+// 递归扫描目录查找 SKILL.md 文件
+async function findSkillDirs(dirPath: string, depth: number = 0, maxDepth: number = 10): Promise<string[]> {
+  const skillDirs: string[] = [];
+
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+
+      // 跳过隐藏目录、node_modules 和 docs 目录
+      if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'docs') {
+        continue;
+      }
+
+      if (entry.isDirectory() && depth < maxDepth) {
+        try {
+          const skillFile = path.join(fullPath, 'SKILL.md');
+          fsSync.accessSync(skillFile);
+          skillDirs.push(fullPath);
+        } catch {
+          const subDirs = await findSkillDirs(fullPath, depth + 1, maxDepth);
+          skillDirs.push(...subDirs);
+        }
+      }
+    }
+  } catch { /* skip */ }
+
+  return skillDirs;
+}
+
+// 获取所有可能的根目录
+function getAllRoots(): string[] {
+  const homeDir = os.homedir();
+  const roots: string[] = [];
+
   if (process.env.CLAUDE_CODE_ROOT) {
-    return process.env.CLAUDE_CODE_ROOT;
+    roots.push(process.env.CLAUDE_CODE_ROOT);
   }
 
-  const homeDir = os.homedir();
-
-  // 2. 常见路径列表
   const commonPaths = [
-    path.join(homeDir, 'everything-claude-code'),
     path.join(homeDir, '.claude'),
+    path.join(homeDir, 'everything-claude-code'),
     path.join(homeDir, 'Claude Code'),
     path.join(homeDir, 'claude-code'),
   ];
 
   for (const p of commonPaths) {
     try {
-      // 检查是否存在 skills 目录
-      const skillsPath = path.join(p, 'skills');
-      fsSync.accessSync(skillsPath);
-      return p;
-    } catch {
-      // 路径不存在，继续检查下一个
-    }
+      fsSync.accessSync(p);
+      roots.push(p);
+    } catch { /* skip */ }
   }
 
-  // 3. 当前目录向上搜索（最多向上 4 层）
-  let searchDir = process.cwd();
-  for (let i = 0; i < 4; i++) {
-    const skillsPath = path.join(searchDir, 'skills');
-    try {
-      fsSync.accessSync(skillsPath);
-      return searchDir;
-    } catch {
-      const parent = path.dirname(searchDir);
-      if (parent === searchDir) break; // 已到达根目录
-      searchDir = parent;
-    }
-  }
-
-  return null;
+  return [...new Set(roots)];
 }
 
-// 动态获取根目录
-function getClaudeCodeRoot(): string {
-  const detected = detectClaudeCodeRoot();
-  if (detected) {
-    console.log(`[Feature Menu] 检测到 Claude Code 目录: ${detected}`);
-    return detected;
+// 收集所有 skill 目录
+async function collectAllSkillDirs(): Promise<string[]> {
+  const roots = getAllRoots();
+  const allDirs: string[] = [];
+
+  for (const root of roots) {
+    const dirs = await findSkillDirs(root);
+    allDirs.push(...dirs);
   }
 
-  // 回退到默认路径（相对于项目目录）
-  const fallback = path.join(process.cwd(), '../..');
-  console.warn(`[Feature Menu] 未检测到 Claude Code 目录，使用默认路径: ${fallback}`);
-  return fallback;
+  return [...new Set(allDirs)];
 }
-
-const CLAUDE_CODE_ROOT = getClaudeCodeRoot();
-const SKILLS_ROOT = path.join(CLAUDE_CODE_ROOT, 'skills');
-const AGENTS_ROOT = path.join(CLAUDE_CODE_ROOT, 'agents');
-const COMMANDS_ROOT = path.join(CLAUDE_CODE_ROOT, 'commands');
 
 // 缓存机制
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
-  ttl: number; // 毫秒
+  ttl: number;
 }
 
 const cache = new Map<string, CacheEntry<unknown>>();
-const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5分钟
+const DEFAULT_CACHE_TTL = 5 * 60 * 1000;
 
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
@@ -120,8 +126,7 @@ function validateFrontmatter(data: Record<string, string>, filePath: string): Fr
   return result;
 }
 
-// 提供默认值处理缺失字段
-function getDefaultValue(field: string, fallback: string): string {
+function getDefaultValue(_field: string, fallback: string): string {
   return fallback;
 }
 
@@ -136,7 +141,6 @@ function parseFrontmatter(content: string): { data: Record<string, string>, body
   const yamlStr = match[1];
   const body = match[2];
 
-  // 简单解析 YAML (不支持复杂结构)
   const data: Record<string, string> = {};
   const lines = yamlStr.split('\n');
 
@@ -177,49 +181,15 @@ function extractWhenToUse(body: string): string {
   return whenToUseLines.join(' ');
 }
 
-// 递归扫描目录
-async function scanDirectoryRecursive(
-  dirPath: string,
-  filePattern: string,
-  depth: number = 0,
-  maxDepth: number = 3
-): Promise<string[]> {
-  const files: string[] = [];
-
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(dirPath, entry.name);
-
-      if (entry.isDirectory() && depth < maxDepth) {
-        // 递归扫描子目录
-        const subFiles = await scanDirectoryRecursive(fullPath, filePattern, depth + 1, maxDepth);
-        files.push(...subFiles);
-      } else if (entry.isFile() && entry.name === filePattern) {
-        files.push(fullPath);
-      }
-    }
-  } catch (error) {
-    console.error(`Error scanning directory ${dirPath}:`, error);
-  }
-
-  return files;
-}
-
 // 扫描单个技能文件
 async function scanSkillFile(skillPath: string): Promise<Skill | null> {
   try {
     const content = await fs.readFile(skillPath, 'utf-8');
     const { data, body } = parseFrontmatter(content);
 
-    // 验证 frontmatter
     const validation = validateFrontmatter(data, skillPath);
     if (!validation.isValid) {
       console.error(`Validation failed for ${skillPath}:`, validation.errors);
-    }
-    if (validation.warnings.length > 0) {
-      console.warn(`Validation warnings for ${skillPath}:`, validation.warnings);
     }
 
     const dirName = path.basename(path.dirname(skillPath));
@@ -254,11 +224,23 @@ export async function scanSkills(forceRefresh: boolean = false): Promise<Skill[]
   const skills: Skill[] = [];
 
   try {
-    // 递归扫描 skills 目录，查找 SKILL.md 文件
-    const skillFiles = await scanDirectoryRecursive(SKILLS_ROOT, 'SKILL.md');
+    const skillDirs = await collectAllSkillDirs();
+    console.log('[DEBUG] ===== scanSkills() start =====');
+    console.log('[DEBUG] Roots:', getAllRoots());
+    console.log('[DEBUG] Skill directories found:', skillDirs.length);
+    skillDirs.forEach((d, i) => console.log(`  [${i}] ${d}`));
 
-    // 并行扫描所有技能文件
-    const results = await Promise.all(skillFiles.map(scanSkillFile));
+    const allSkillFiles: string[] = [];
+    for (const dir of skillDirs) {
+      const skillFile = path.join(dir, 'SKILL.md');
+      try {
+        fsSync.accessSync(skillFile);
+        allSkillFiles.push(skillFile);
+      } catch { /* skip */ }
+    }
+    console.log('[DEBUG] Total skill files found:', allSkillFiles.length);
+
+    const results = await Promise.all(allSkillFiles.map(scanSkillFile));
 
     for (const skill of results) {
       if (skill) {
@@ -280,7 +262,6 @@ async function scanAgentFile(agentPath: string): Promise<Agent | null> {
     const content = await fs.readFile(agentPath, 'utf-8');
     const { data } = parseFrontmatter(content);
 
-    // 验证 frontmatter
     const validation = validateFrontmatter(data, agentPath);
     if (!validation.isValid) {
       console.error(`Validation failed for ${agentPath}:`, validation.errors);
@@ -292,7 +273,7 @@ async function scanAgentFile(agentPath: string): Promise<Agent | null> {
       id: fileName.replace('.md', ''),
       name: data.name || getDefaultValue('name', fileName.replace('.md', '')),
       description: data.description || getDefaultValue('description', '暂无描述'),
-      tools: data.tools ? data.tools.split(',').map(t => t.trim()) : [],
+      tools: data.tools ? data.tools.split(',').map((t: string) => t.trim()) : [],
       model: data.model || getDefaultValue('model', 'sonnet'),
       filePath: agentPath,
     };
@@ -300,6 +281,49 @@ async function scanAgentFile(agentPath: string): Promise<Agent | null> {
     console.error(`Error reading agent file ${agentPath}:`, error);
     return null;
   }
+}
+
+// 递归扫描 agents 目录
+async function findAgentFiles(dirPath: string, depth: number = 0, maxDepth: number = 10): Promise<string[]> {
+  const files: string[] = [];
+
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+
+      if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'docs') {
+        continue;
+      }
+
+      if (entry.isDirectory() && depth < maxDepth) {
+        const subFiles = await findAgentFiles(fullPath, depth + 1, maxDepth);
+        files.push(...subFiles);
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        files.push(fullPath);
+      }
+    }
+  } catch { /* skip */ }
+
+  return files;
+}
+
+// 收集所有 agent 文件
+async function collectAllAgentFiles(): Promise<string[]> {
+  const roots = getAllRoots();
+  const allFiles: string[] = [];
+
+  for (const root of roots) {
+    const agentsPath = path.join(root, 'agents');
+    try {
+      fsSync.accessSync(agentsPath);
+      const files = await findAgentFiles(agentsPath);
+      allFiles.push(...files);
+    } catch { /* skip */ }
+  }
+
+  return [...new Set(allFiles)];
 }
 
 // 扫描 agents 目录
@@ -313,11 +337,9 @@ export async function scanAgents(forceRefresh: boolean = false): Promise<Agent[]
   const agents: Agent[] = [];
 
   try {
-    const entries = await fs.readdir(AGENTS_ROOT, { withFileTypes: true });
+    const agentFiles = await collectAllAgentFiles();
 
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-      const agentPath = path.join(AGENTS_ROOT, entry.name);
+    for (const agentPath of agentFiles) {
       const agent = await scanAgentFile(agentPath);
       if (agent) {
         agents.push(agent);
@@ -338,7 +360,6 @@ async function scanCommandFile(commandPath: string): Promise<Command | null> {
     const content = await fs.readFile(commandPath, 'utf-8');
     const { data } = parseFrontmatter(content);
 
-    // 验证 frontmatter
     const validation = validateFrontmatter(data, commandPath);
     if (!validation.isValid) {
       console.error(`Validation failed for ${commandPath}:`, validation.errors);
@@ -358,6 +379,49 @@ async function scanCommandFile(commandPath: string): Promise<Command | null> {
   }
 }
 
+// 递归扫描 commands 目录
+async function findCommandFiles(dirPath: string, depth: number = 0, maxDepth: number = 10): Promise<string[]> {
+  const files: string[] = [];
+
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+
+      if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'docs') {
+        continue;
+      }
+
+      if (entry.isDirectory() && depth < maxDepth) {
+        const subFiles = await findCommandFiles(fullPath, depth + 1, maxDepth);
+        files.push(...subFiles);
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        files.push(fullPath);
+      }
+    }
+  } catch { /* skip */ }
+
+  return files;
+}
+
+// 收集所有 command 文件
+async function collectAllCommandFiles(): Promise<string[]> {
+  const roots = getAllRoots();
+  const allFiles: string[] = [];
+
+  for (const root of roots) {
+    const commandsPath = path.join(root, 'commands');
+    try {
+      fsSync.accessSync(commandsPath);
+      const files = await findCommandFiles(commandsPath);
+      allFiles.push(...files);
+    } catch { /* skip */ }
+  }
+
+  return [...new Set(allFiles)];
+}
+
 // 扫描 commands 目录
 export async function scanCommands(forceRefresh: boolean = false): Promise<Command[]> {
   const cacheKey = 'commands';
@@ -369,11 +433,9 @@ export async function scanCommands(forceRefresh: boolean = false): Promise<Comma
   const commands: Command[] = [];
 
   try {
-    const entries = await fs.readdir(COMMANDS_ROOT, { withFileTypes: true });
+    const commandFiles = await collectAllCommandFiles();
 
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-      const commandPath = path.join(COMMANDS_ROOT, entry.name);
+    for (const commandPath of commandFiles) {
       const command = await scanCommandFile(commandPath);
       if (command) {
         commands.push(command);

@@ -43,8 +43,8 @@ export function Stats() {
     value
   })).sort((a, b) => b.value - a.value);
 
-  // Take top 10 for the bar chart
-  const barChartData = topSkills.slice(0, 10).map(s => ({
+  // Take top 3 for the bar chart
+  const barChartData = topSkills.slice(0, 3).map(s => ({
     name: s.name,
     uses: s.usage
   }));
@@ -167,12 +167,13 @@ export function Stats() {
                   <XAxis
                     dataKey="name"
                     stroke="#888"
-                    fontSize={12}
+                    fontSize={11}
                     tickLine={false}
                     axisLine={false}
                     angle={-45}
                     textAnchor="end"
-                    height={60}
+                    height={80}
+                    tickFormatter={(value: string) => value.length > 15 ? value.slice(0, 12) + '...' : value}
                   />
                   <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
                   <Tooltip

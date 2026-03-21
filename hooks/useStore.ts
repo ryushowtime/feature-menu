@@ -131,22 +131,32 @@ export const useStore = () => {
 
   const favoriteSkills = skills.filter(s => state.favorites.includes(s.id));
 
+  // Deduplicate skills by id (same skill may exist in multiple locations)
+  const uniqueSkills = useMemo(() => {
+    const seen = new Set<string>();
+    return skills.filter(s => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+  }, [skills]);
+
   // Create an array with usage counts for charts and ranking
-  const skillsWithUsage = skills.map(s => ({
+  const skillsWithUsage = uniqueSkills.map(s => ({
     ...s,
     usage: mergedUsageCount[s.id] || 0
   }));
 
-  const recentlyUsed = skills
+  const recentlyUsed = uniqueSkills
     .filter(s => mergedUsageCount[s.id] > 0)
     .sort((a, b) => (mergedUsageCount[b.id] || 0) - (mergedUsageCount[a.id] || 0))
-    .slice(0, 5);
+    .slice(0, 3);
 
   // Top skills sorted by usage (for stats page)
   const topSkills = [...skillsWithUsage]
     .filter(s => s.usage > 0)
     .sort((a, b) => b.usage - a.usage)
-    .slice(0, 20);
+    .slice(0, 3);
 
   // Total usage count across all skills
   const totalUsageCount = Object.values(mergedUsageCount).reduce((acc, curr) => acc + curr, 0);
