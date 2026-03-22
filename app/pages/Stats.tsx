@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useStore } from '../../hooks/useStore';
 import { GlowCard, Badge, Button, Card } from '../../components/ui';
 import {
@@ -7,7 +8,6 @@ import {
   TrendingUp,
   Server,
   CheckCircle2,
-  XCircle,
   BarChart2,
   PieChart as PieChartIcon,
   RefreshCw,
@@ -29,8 +29,14 @@ const Cell = dynamic(() => import('recharts').then(mod => mod.Cell), { ssr: fals
 const COLORS = ['#71C4EF', '#FF5733', '#C70039', '#900C3F', '#581845', '#1abc9c', '#f1c40f'];
 
 export function Stats() {
+  const [mounted, setMounted] = useState(false);
   const { state, topSkills, totalUsageCount, toggleHook } = useStore();
   const { isHookEnabled } = state;
+
+  // Avoid hydration mismatch - only render dynamic content after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Calculate category distribution
   const categoryCount = topSkills.reduce((acc, skill) => {
@@ -72,7 +78,7 @@ export function Stats() {
               {isHookEnabled ? (
                 <Badge variant="success" className="px-2 py-0 h-5 text-[10px] uppercase tracking-wider">已启用</Badge>
               ) : (
-                <Badge variant="destructive" className="px-2 py-0 h-5 text-[10px] uppercase tracking-wider">已禁用</Badge>
+                <Badge variant="danger" className="px-2 py-0 h-5 text-[10px] uppercase tracking-wider">已禁用</Badge>
               )}
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
@@ -98,7 +104,7 @@ export function Stats() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">总调用次数</p>
-              <p className="text-4xl font-black mt-2 text-foreground font-mono">{totalUsageCount.toLocaleString()}</p>
+              <p className="text-4xl font-black mt-2 text-foreground font-mono">{mounted ? totalUsageCount.toLocaleString() : '—'}</p>
             </div>
             <div className="p-3 bg-primary/10 rounded-xl border border-primary/20">
               <Activity className="h-6 w-6 text-primary" />
@@ -106,7 +112,7 @@ export function Stats() {
           </div>
           <div className="mt-4 pt-4 border-t border-border/50 flex items-center gap-2 text-xs text-muted-foreground">
             <TrendingUp className="h-3 w-3 text-success" />
-            <span className="text-success font-medium">活跃</span> 跨 {topSkills.length} 个技能
+            <span className="text-success font-medium">活跃</span> 跨 {mounted ? topSkills.length : 0} 个技能
           </div>
         </GlowCard>
 
@@ -114,7 +120,7 @@ export function Stats() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">已使用技能数</p>
-              <p className="text-4xl font-black mt-2 text-foreground font-mono">{topSkills.length}</p>
+              <p className="text-4xl font-black mt-2 text-foreground font-mono">{mounted ? topSkills.length : '—'}</p>
             </div>
             <div className="p-3 bg-secondary/10 rounded-xl border border-secondary/20">
               <Server className="h-6 w-6 text-secondary" />
@@ -122,7 +128,7 @@ export function Stats() {
           </div>
           <div className="mt-4 pt-4 border-t border-border/50 flex items-center gap-2 text-xs text-muted-foreground">
             <CheckCircle2 className="h-3 w-3 text-secondary" />
-            共 {state.usageCount ? Object.keys(state.usageCount).length : 0} 个追踪项目
+            共 {mounted ? (state.usageCount ? Object.keys(state.usageCount).length : 0) : 0} 个追踪项目
           </div>
         </GlowCard>
 
@@ -131,7 +137,7 @@ export function Stats() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">最常用分类</p>
               <p className="text-2xl font-bold mt-2 text-foreground truncate max-w-[150px]">
-                {pieData.length > 0 ? pieData[0].name : "无数据"}
+                {mounted ? (pieData.length > 0 ? pieData[0].name : "无数据") : "—"}
               </p>
             </div>
             <div className="p-3 bg-warning/10 rounded-xl border border-warning/20">
@@ -139,14 +145,14 @@ export function Stats() {
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-border/50 flex items-center gap-2 text-xs text-muted-foreground">
-            {pieData.length > 0 ? (
+            {mounted ? (pieData.length > 0 ? (
               <>
                 <TrendingUp className="h-3 w-3 text-warning" />
                 <span className="text-warning font-medium">{pieData[0].value}</span> 次使用此分类
               </>
             ) : (
               "暂无数据"
-            )}
+            )) : "—"}
           </div>
         </GlowCard>
       </div>
@@ -157,9 +163,9 @@ export function Stats() {
         <Card className="p-6 border-border/50">
           <div className="flex items-center gap-2 mb-6">
             <BarChart2 className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-medium">Top 10 使用最多的技能</h2>
+            <h2 className="text-lg font-medium">Top 3 使用最多的技能</h2>
           </div>
-          {barChartData.length > 0 ? (
+          {mounted && barChartData.length > 0 ? (
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barChartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
@@ -167,13 +173,12 @@ export function Stats() {
                   <XAxis
                     dataKey="name"
                     stroke="#888"
-                    fontSize={11}
+                    fontSize={12}
                     tickLine={false}
                     axisLine={false}
                     angle={-45}
                     textAnchor="end"
-                    height={80}
-                    tickFormatter={(value: string) => value.length > 15 ? value.slice(0, 12) + '...' : value}
+                    height={60}
                   />
                   <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
                   <Tooltip
@@ -199,7 +204,7 @@ export function Stats() {
             <PieChartIcon className="h-5 w-5 text-secondary" />
             <h2 className="text-lg font-medium">分类使用分布</h2>
           </div>
-          {pieData.length > 0 ? (
+          {mounted && pieData.length > 0 ? (
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -244,12 +249,12 @@ export function Stats() {
       <div className="space-y-4">
         <h2 className="text-xl font-medium flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-primary" />
-          Top 20 排行榜
+          Top 3 排行榜
         </h2>
 
-        {topSkills.length > 0 ? (
+        {mounted && topSkills.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {topSkills.slice(0, 20).map((skill, i) => (
+            {topSkills.slice(0, 3).map((skill, i) => (
               <GlowCard key={skill.id} className="p-4 flex items-center justify-between group hover:border-primary/50 transition-colors">
                 <div className="flex items-center gap-4">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
