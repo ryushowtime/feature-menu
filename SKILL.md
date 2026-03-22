@@ -65,9 +65,9 @@ cd ~/feature-menu && npm install && npm run dev &
 
 使用平台适当的命令打开浏览器：
 
-- macOS: `open http://localhost:3000`
-- Linux: `xdg-open http://localhost:3000`
-- Windows: `start http://localhost:3000`
+- macOS: `open <http://localhost:3000>`
+- Linux: `xdg-open <http://localhost:3000>`
+- Windows: `start <http://localhost:3000>`
 
 ### 步骤 5: 确认启动成功
 
@@ -75,7 +75,7 @@ cd ~/feature-menu && npm install && npm run dev &
 
 ```
 ✅ 功能中心已打开！
-📍 访问 http://localhost:3000 查看所有技能、代理和命令
+📍 访问 <http://localhost:3000> 查看所有技能、代理和命令
 按 Ctrl+C 停止服务
 ```
 
@@ -100,7 +100,7 @@ npm install
 npm run dev
 ```
 
-然后打开浏览器访问 http://localhost:3000
+然后打开浏览器访问 <http://localhost:3000>
 
 ### 端口被占用
 
