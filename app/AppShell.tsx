@@ -56,6 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     ? "bg-primary/10 text-primary border border-primary/20 shadow-[inset_0_0_10px_rgba(113,196,239,0.1)]"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
                 )}
+                suppressHydrationWarning
               >
                 <item.icon className="h-5 w-5" />
                 {item.name}
@@ -79,6 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       ? "bg-primary/10 text-primary border border-primary/20 shadow-[inset_0_0_10px_rgba(113,196,239,0.1)]"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
                   )}
+                  suppressHydrationWarning
                 >
                   <item.icon className="h-5 w-5" />
                   {item.name}
