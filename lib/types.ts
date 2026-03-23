@@ -12,6 +12,7 @@ export interface Skill {
   command: string;
   related: string[];
   filePath?: string;
+  usage?: number;
 }
 
 export interface Agent {
