@@ -11,10 +11,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const HOOKS_DIR = path.join(os.homedir(), '.claude', 'hooks');
 const SETTINGS_FILE = path.join(os.homedir(), '.claude', 'settings.json');

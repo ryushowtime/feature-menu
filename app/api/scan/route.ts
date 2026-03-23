@@ -3,7 +3,8 @@ import { scanAll } from '../../../lib/scanner';
 
 export async function GET() {
   try {
-    const data = await scanAll();
+    // forceRefresh=true to get latest data including from all skills directories
+    const data = await scanAll(true);
     return NextResponse.json(data);
   } catch (error) {
     console.error('Scan error:', error);

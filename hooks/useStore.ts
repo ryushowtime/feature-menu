@@ -149,9 +149,9 @@ export const useStore = () => {
     usage: mergedUsageCount[s.id] || 0
   }));
 
-  const recentlyUsed = uniqueSkills
-    .filter(s => mergedUsageCount[s.id] > 0)
-    .sort((a, b) => (mergedUsageCount[b.id] || 0) - (mergedUsageCount[a.id] || 0))
+  const recentlyUsed = skillsWithUsage
+    .filter(s => s.usage > 0)
+    .sort((a, b) => b.usage - a.usage)
     .slice(0, 3);
 
   // Top skills sorted by usage (for stats page)
