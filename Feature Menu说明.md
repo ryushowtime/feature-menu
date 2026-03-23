@@ -27,7 +27,7 @@
 - `PR.md` - 需求文档（**最新版设计规范**）
 - `docs/presentation.html` - Figma 导出的演示稿
 
-**技术栈**：React + Vite + Tailwind CSS v4 → 已转换为 Next.js 14
+**技术栈**：React + Tailwind CSS v3 → Next.js 14
 
 ### v4.0 - 中文 UI 版（当前版本）
 
@@ -90,7 +90,7 @@ git push
 - **搜索功能** - 关键词搜索，瞬间定位（按 `/` 聚焦）
 - **任务推荐** - 告诉它你想做什么，它推荐合适的技能
 - **收藏功能** - 收藏常用技能，方便快速访问
-- **最近使用** - 快速访问最近使用过的技能
+- **最近使用** - 快速访问最近使用过的技能（侧边栏展示最新 5 个）
 - **文件扫描** - 自动检测 Claude Code 目录（支持多路径）
 - **命令复制** - 点击即复制命令到剪贴板
 - **技能详情** - 弹窗显示技能完整信息
@@ -192,13 +192,17 @@ feature-menu/
 │   │   ├── Agents.tsx
 │   │   ├── Commands.tsx
 │   │   ├── TaskWizard.tsx
+│   │   ├── Stats.tsx        # 使用统计页面
 │   │   └── Help.tsx
+│   ├── stats/page.tsx       # 统计路由
 │   └── api/
 │       ├── scan/route.ts   # 扫描 API
 │       └── usage/route.ts  # 使用量统计 API
-├── components/ui/
-│   ├── index.tsx           # 基础组件（Button, Card, Badge, Input）
-│   └── Modal.tsx            # 弹窗组件
+├── components/
+│   ├── ui/
+│   │   ├── index.tsx           # 基础组件（Button, Card, Badge, Input）
+│   │   └── Modal.tsx            # 弹窗组件
+│   └── ClientOnly.tsx          # SSR Hydration 修复组件
 ├── hooks/
 │   └── useStore.ts         # 状态管理（收藏、最近使用、合并统计）
 ├── lib/
@@ -225,6 +229,24 @@ feature-menu/
 ├── Figma-设计提示词.md       # 第二版设计提示词
 └── package.json
 ```
+
+---
+
+## CI 配置
+
+项目使用 GitHub Actions 进行持续集成：
+
+**工作流文件**：`.github/workflows/ci.yml`
+
+**检查项**：
+- `npm ci` - 安装依赖
+- `npm run build` - 构建项目
+- ESLint - 代码检查
+- markdownlint - 文档检查
+
+**触发条件**：
+- 推送到 main 分支
+- 提交 Pull Request
 
 ---
 
@@ -285,12 +307,18 @@ brew install jq  # macOS
 npx ts-node install/install-hook.ts
 ```
 
+### Stats 页面展示
+
+统计页面包含两个区块：
+- **Top 3 使用最多的技能** - 柱状图，展示使用次数最多的技能
+- **最近使用** - 列表，展示最近使用的技能（按时间从近到远，最多 5 项）
+
 ### 技术细节
 
 - **Hook 类型**：`PostToolUse` + `matcher: "Skill"`
 - **数据文件**：`~/.claude/skills-usage.json`
 - **安装位置**：`~/.claude/hooks/log-skill-usage.sh`
-- **API 端点**：`/api/usage`
+- **API 端点**：`/api/usage`（返回 stats 和 recent 两个字段）
 - **轮询间隔**：30 秒
 
 ### 数据格式
