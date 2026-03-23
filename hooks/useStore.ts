@@ -47,6 +47,7 @@ export const useStore = () => {
   const [commands, setCommands] = useState<Command[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [claudeUsageCount, setClaudeUsageCount] = useState<Record<string, number>>({});
+  const [claudeRecent, setClaudeRecent] = useState<string[]>([]);
 
   // Load scanned data on mount
   useEffect(() => {
@@ -77,6 +78,7 @@ export const useStore = () => {
         if (response.ok) {
           const data = await response.json();
           setClaudeUsageCount(data.stats || {});
+          setClaudeRecent(data.recent || []);
         }
       } catch (error) {
         console.error('Failed to load Claude usage:', error);
@@ -147,9 +149,9 @@ export const useStore = () => {
     usage: mergedUsageCount[s.id] || 0
   }));
 
-  const recentlyUsed = skillsWithUsage
-    .filter(s => s.usage > 0)
-    .sort((a, b) => b.usage - a.usage)
+  const recentlyUsed = uniqueSkills
+    .filter(s => mergedUsageCount[s.id] > 0)
+    .sort((a, b) => (mergedUsageCount[b.id] || 0) - (mergedUsageCount[a.id] || 0))
     .slice(0, 3);
 
   // Top skills sorted by usage (for stats page)
@@ -157,6 +159,14 @@ export const useStore = () => {
     .filter(s => s.usage > 0)
     .sort((a, b) => b.usage - a.usage)
     .slice(0, 3);
+
+  // Recently used skills based on recent array (for stats page - recently used list)
+  const recentlyUsedSkills = useMemo(() => {
+    return claudeRecent
+      .slice(0, 5)
+      .map(id => skillsWithUsage.find(s => s.id === id))
+      .filter((s): s is typeof skillsWithUsage[0] => s !== undefined);
+  }, [claudeRecent, skillsWithUsage]);
 
   // Total usage count across all skills
   const totalUsageCount = Object.values(mergedUsageCount).reduce((acc, curr) => acc + curr, 0);
@@ -174,6 +184,7 @@ export const useStore = () => {
     favoriteSkills,
     recentlyUsed,
     topSkills,
+    recentlyUsedSkills,
     skillsWithUsage,
     totalUsageCount,
     mergedUsageCount,

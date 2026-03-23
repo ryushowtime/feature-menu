@@ -42,26 +42,20 @@ function getClaudeCodeRoot(): string {
   return path.join(process.cwd(), '../..');
 }
 
-async function loadClaudeUsageData(): Promise<Record<string, number>> {
-  const claudeRoot = getClaudeCodeRoot();
-  const usageFile = path.join(claudeRoot, 'skills-usage.json');
-  try {
-    const content = await fs.readFile(usageFile, 'utf-8');
-    const data: ClaudeUsageData = JSON.parse(content);
-    return data.stats || {};
-  } catch {
-    return {};
-  }
-}
-
 export async function GET() {
   try {
-    const claudeUsage = await loadClaudeUsageData();
-    return NextResponse.json({ stats: claudeUsage });
+    const claudeRoot = getClaudeCodeRoot();
+    const usageFile = path.join(claudeRoot, 'skills-usage.json');
+    const content = await fs.readFile(usageFile, 'utf-8');
+    const data: ClaudeUsageData = JSON.parse(content);
+    return NextResponse.json({
+      stats: data.stats || {},
+      recent: data.recent || []
+    });
   } catch (error) {
     console.error('Usage API error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch usage data', stats: {} },
+      { error: 'Failed to fetch usage data', stats: {}, recent: [] },
       { status: 500 }
     );
   }

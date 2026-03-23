@@ -30,7 +30,7 @@ const COLORS = ['#71C4EF', '#FF5733', '#C70039', '#900C3F', '#581845', '#1abc9c'
 
 export function Stats() {
   const [mounted, setMounted] = useState(false);
-  const { state, topSkills, totalUsageCount, toggleHook } = useStore();
+  const { state, topSkills, recentlyUsedSkills, totalUsageCount, toggleHook } = useStore();
   const { isHookEnabled } = state;
 
   // Avoid hydration mismatch - only render dynamic content after mount
@@ -245,26 +245,18 @@ export function Stats() {
         </Card>
       </div>
 
-      {/* Top 20 Detailed List */}
+      {/* Recently Used List */}
       <div className="space-y-4">
         <h2 className="text-xl font-medium flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-primary" />
-          Top 3 排行榜
+          最近使用
         </h2>
 
-        {mounted && topSkills.length > 0 ? (
+        {mounted && recentlyUsedSkills.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {topSkills.slice(0, 3).map((skill, i) => (
+            {recentlyUsedSkills.map((skill) => (
               <GlowCard key={skill.id} className="p-4 flex items-center justify-between group hover:border-primary/50 transition-colors">
                 <div className="flex items-center gap-4">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                    i === 0 ? 'bg-warning/20 text-warning border border-warning/50' :
-                    i === 1 ? 'bg-gray-400/20 text-gray-300 border border-gray-400/50' :
-                    i === 2 ? 'bg-amber-700/20 text-amber-600 border border-amber-700/50' :
-                    'bg-muted text-muted-foreground'
-                  }`}>
-                    {i + 1}
-                  </div>
                   <div>
                     <h4 className="font-medium text-foreground">{skill.name}</h4>
                     <p className="text-xs text-muted-foreground truncate max-w-[200px]">{skill.description}</p>
@@ -272,7 +264,6 @@ export function Stats() {
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <Badge variant="primary" className="bg-primary/5">{skill.category}</Badge>
-                  <span className="text-sm font-bold text-foreground font-mono">{skill.usage} <span className="text-[10px] text-muted-foreground font-sans font-normal">次</span></span>
                 </div>
               </GlowCard>
             ))}
