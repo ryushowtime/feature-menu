@@ -41,7 +41,7 @@ export function Modal({
           className
         )}
       >
-        {(title || true) && (
+        {title && (
           <div className="flex items-center justify-between mb-4">
             {title && <h2 className="text-xl font-medium text-foreground">{title}</h2>}
             <button

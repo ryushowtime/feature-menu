@@ -128,7 +128,7 @@ export function recommendSkillGroup(task: string, allSkills: Skill[]): Skill[] {
   // 查找匹配的任务组
   const matchedGroups: string[] = []
 
-  for (const [groupName, groupSkills] of Object.entries(skillGroups)) {
+  for (const [groupName, _groupSkills] of Object.entries(skillGroups)) {
     const groupKeywords = groupName.split('').join(' ')
     const combined = `${groupName} ${groupKeywords}`.toLowerCase()
 
@@ -252,7 +252,7 @@ const taskSkillMapping: Record<string, { categories: SkillCategory[], keywords: 
 }
 
 // 通用推荐
-const generalSkills: string[] = [
+const _generalSkills: string[] = [
   'tdd-workflow',
   'code-review',
   'planning',
