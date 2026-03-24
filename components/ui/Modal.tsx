@@ -22,13 +22,14 @@ export function Modal({
       if (e.key === 'Escape') onClose();
     };
     if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
       document.addEventListener('keydown', handleEsc);
       document.body.style.overflow = 'hidden';
+      return () => {
+        document.removeEventListener('keydown', handleEsc);
+        document.body.style.overflow = originalOverflow;
+      };
     }
-    return () => {
-      document.removeEventListener('keydown', handleEsc);
-      document.body.style.overflow = 'auto';
-    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -43,7 +44,7 @@ export function Modal({
       >
         {title && (
           <div className="flex items-center justify-between mb-4">
-            {title && <h2 className="text-xl font-medium text-foreground">{title}</h2>}
+            <h2 className="text-xl font-medium text-foreground">{title}</h2>
             <button
               onClick={onClose}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors absolute right-4 top-4"

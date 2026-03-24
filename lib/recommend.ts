@@ -1,4 +1,5 @@
 import { Skill, SkillCategory } from './types'
+import { loadUsageData } from './usage'
 
 // 简单的中文分词
 function tokenize(text: string): string[] {
@@ -67,16 +68,8 @@ const skillGroups: Record<string, string[]> = {
   '部署': ['deployment', 'docker', 'cicd', 'hooks'],
 }
 
-// 使用频率记录（用于热门技能标记）
-let usageStats: Record<string, number> = {}
-
-// 设置使用统计数据
-export function setUsageStats(stats: Record<string, number>) {
-  usageStats = stats
-}
-
 // 获取热门技能
-export function getHotSkills(allSkills: Skill[], limit: number = 5): Skill[] {
+export function getHotSkills(allSkills: Skill[], usageStats: Record<string, number>, limit: number = 5): Skill[] {
   return Object.entries(usageStats)
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
@@ -128,7 +121,7 @@ export function recommendSkillGroup(task: string, allSkills: Skill[]): Skill[] {
   // 查找匹配的任务组
   const matchedGroups: string[] = []
 
-  for (const [groupName, _groupSkills] of Object.entries(skillGroups)) {
+  for (const groupName of Object.keys(skillGroups)) {
     const groupKeywords = groupName.split('').join(' ')
     const combined = `${groupName} ${groupKeywords}`.toLowerCase()
 
@@ -251,15 +244,6 @@ const taskSkillMapping: Record<string, { categories: SkillCategory[], keywords: 
   },
 }
 
-// 通用推荐
-const _generalSkills: string[] = [
-  'tdd-workflow',
-  'code-review',
-  'planning',
-  'search-first',
-  'brainstorming',
-]
-
 export function getTaskSuggestions(): string[] {
   return Object.keys(taskSkillMapping)
 }
@@ -318,17 +302,18 @@ export function recommendSkills(task: string, allSkills: Skill[]): Skill[] {
 
   // 如果仍然不足，添加热门技能
   if (results.length < 4) {
-    const hotSkills = getHotSkills(allSkills, 6)
+    const usageData = loadUsageData()
+    const hotSkills = getHotSkills(allSkills, usageData.stats, 6)
     const existingIds = new Set(results.map(s => s.id))
     const supplemental = hotSkills.filter(s => !existingIds.has(s.id)).slice(0, 4 - results.length)
     results = [...results, ...supplemental]
   }
 
-  return results.slice(0, 6)
+  return results.slice(0, 4)
 }
 
 // 获取带热门标记的技能列表
-export function getSkillsWithHotBadge(allSkills: Skill[], limit: number = 3): Skill[] {
-  const hotSkills = getHotSkills(allSkills, limit)
+export function getSkillsWithHotBadge(allSkills: Skill[], usageStats: Record<string, number>, limit: number = 3): Skill[] {
+  const hotSkills = getHotSkills(allSkills, usageStats, limit)
   return hotSkills
 }

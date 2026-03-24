@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import * as fsSync from 'fs';
 import path from 'path';
 import os from 'os';
+import * as yaml from 'js-yaml';
 import { Skill, Agent, Command, getCategory, getLevel, levelToDifficulty } from './types';
 
 // 递归扫描目录查找 SKILL.md 文件
@@ -61,19 +62,6 @@ function getAllRoots(): string[] {
   return [...new Set(roots)];
 }
 
-// 收集所有 skill 目录
-async function collectAllSkillDirs(): Promise<string[]> {
-  const roots = getAllRoots();
-  const allDirs: string[] = [];
-
-  for (const root of roots) {
-    const dirs = await findSkillDirs(root);
-    allDirs.push(...dirs);
-  }
-
-  return [...new Set(allDirs)];
-}
-
 // 缓存机制
 interface CacheEntry<T> {
   data: T;
@@ -82,7 +70,7 @@ interface CacheEntry<T> {
 }
 
 const cache = new Map<string, CacheEntry<unknown>>();
-const DEFAULT_CACHE_TTL = 5 * 60 * 1000;
+const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5分钟
 
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
@@ -96,6 +84,23 @@ function getCached<T>(key: string): T | null {
 
 function setCache<T>(key: string, data: T, ttl: number = DEFAULT_CACHE_TTL): void {
   cache.set(key, { data, timestamp: Date.now(), ttl });
+}
+
+export function clearCache(): void {
+  cache.clear();
+}
+
+// 收集所有 skill 目录
+async function collectAllSkillDirs(): Promise<string[]> {
+  const roots = getAllRoots();
+  const allDirs: string[] = [];
+
+  for (const root of roots) {
+    const dirs = await findSkillDirs(root);
+    allDirs.push(...dirs);
+  }
+
+  return [...new Set(allDirs)];
 }
 
 // 验证 frontmatter 必需字段
@@ -131,6 +136,13 @@ function getDefaultValue(_field: string, fallback: string): string {
 }
 
 // 解析 YAML frontmatter
+class YamlParseError extends Error {
+  constructor(message: string, public partialData: Record<string, string> = {}) {
+    super(message);
+    this.name = 'YamlParseError';
+  }
+}
+
 function parseFrontmatter(content: string): { data: Record<string, string>, body: string } {
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
 
@@ -141,19 +153,32 @@ function parseFrontmatter(content: string): { data: Record<string, string>, body
   const yamlStr = match[1];
   const body = match[2];
 
-  const data: Record<string, string> = {};
-  const lines = yamlStr.split('\n');
-
-  for (const line of lines) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex > 0) {
-      const key = line.slice(0, colonIndex).trim();
-      const value = line.slice(colonIndex + 1).trim().replace(/^["']|["']$/g, '');
-      data[key] = value;
+  try {
+    const parsed = yaml.load(yamlStr) as Record<string, unknown>;
+    // Convert all values to strings for consistency with original behavior
+    const data: Record<string, string> = {};
+    if (parsed && typeof parsed === 'object') {
+      for (const [key, value] of Object.entries(parsed)) {
+        data[key] = String(value ?? '');
+      }
     }
+    return { data, body };
+  } catch (error) {
+    // Return partial data if we managed to parse some fields before failure
+    const partialData: Record<string, string> = {};
+    const yamlStrLines = yamlStr.split('\n');
+    for (const line of yamlStrLines) {
+      const colonIndex = line.indexOf(':');
+      if (colonIndex > 0) {
+        const key = line.slice(0, colonIndex).trim();
+        const value = line.slice(colonIndex + 1).trim();
+        if (key && value !== undefined) {
+          partialData[key] = value;
+        }
+      }
+    }
+    throw new YamlParseError(`YAML parse error: ${error instanceof Error ? error.message : String(error)}`, partialData);
   }
-
-  return { data, body };
 }
 
 // 提取 When to Use 段落
@@ -208,6 +233,29 @@ async function scanSkillFile(skillPath: string): Promise<Skill | null> {
       filePath: skillPath,
     };
   } catch (error) {
+    if (error instanceof YamlParseError) {
+      // YAML parse failed but we have partial data - log warning and continue
+      console.warn(`YAML parse warning for ${skillPath}: ${error.message}`);
+      const content = await fs.readFile(skillPath, 'utf-8');
+      const bodyMatch = content.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/);
+      const body = bodyMatch ? bodyMatch[1] : content;
+      const partialData = error.partialData;
+      const dirName = path.basename(path.dirname(skillPath));
+      const category = getCategory(dirName);
+      const level = getLevel(dirName);
+
+      return {
+        id: dirName,
+        name: partialData.name || getDefaultValue('name', dirName),
+        description: partialData.description || getDefaultValue('description', '暂无描述'),
+        category: category,
+        difficulty: levelToDifficulty(level),
+        whenToUse: extractWhenToUse(body),
+        command: partialData.command || getDefaultValue('command', `/${dirName}`),
+        related: [],
+        filePath: skillPath,
+      };
+    }
     console.error(`Error reading skill file ${skillPath}:`, error);
     return null;
   }
@@ -216,6 +264,7 @@ async function scanSkillFile(skillPath: string): Promise<Skill | null> {
 // 扫描技能目录
 export async function scanSkills(forceRefresh: boolean = false): Promise<Skill[]> {
   const cacheKey = 'skills';
+
   if (!forceRefresh) {
     const cached = getCached<Skill[]>(cacheKey);
     if (cached) return cached;
@@ -278,6 +327,20 @@ async function scanAgentFile(agentPath: string): Promise<Agent | null> {
       filePath: agentPath,
     };
   } catch (error) {
+    if (error instanceof YamlParseError) {
+      console.warn(`YAML parse warning for ${agentPath}: ${error.message}`);
+      const partialData = error.partialData;
+      const fileName = path.basename(agentPath);
+
+      return {
+        id: fileName.replace('.md', ''),
+        name: partialData.name || getDefaultValue('name', fileName.replace('.md', '')),
+        description: partialData.description || getDefaultValue('description', '暂无描述'),
+        tools: partialData.tools ? partialData.tools.split(',').map((t: string) => t.trim()) : [],
+        model: partialData.model || getDefaultValue('model', 'sonnet'),
+        filePath: agentPath,
+      };
+    }
     console.error(`Error reading agent file ${agentPath}:`, error);
     return null;
   }
@@ -329,6 +392,7 @@ async function collectAllAgentFiles(): Promise<string[]> {
 // 扫描 agents 目录
 export async function scanAgents(forceRefresh: boolean = false): Promise<Agent[]> {
   const cacheKey = 'agents';
+
   if (!forceRefresh) {
     const cached = getCached<Agent[]>(cacheKey);
     if (cached) return cached;
@@ -339,8 +403,8 @@ export async function scanAgents(forceRefresh: boolean = false): Promise<Agent[]
   try {
     const agentFiles = await collectAllAgentFiles();
 
-    for (const agentPath of agentFiles) {
-      const agent = await scanAgentFile(agentPath);
+    const agentResults = await Promise.all(agentFiles.map(scanAgentFile));
+    for (const agent of agentResults) {
       if (agent) {
         agents.push(agent);
       }
@@ -374,6 +438,18 @@ async function scanCommandFile(commandPath: string): Promise<Command | null> {
       filePath: commandPath,
     };
   } catch (error) {
+    if (error instanceof YamlParseError) {
+      console.warn(`YAML parse warning for ${commandPath}: ${error.message}`);
+      const partialData = error.partialData;
+      const fileName = path.basename(commandPath);
+
+      return {
+        id: fileName.replace('.md', ''),
+        name: partialData.name || getDefaultValue('name', fileName.replace('.md', '')),
+        description: partialData.description || getDefaultValue('description', '暂无描述'),
+        filePath: commandPath,
+      };
+    }
     console.error(`Error reading command file ${commandPath}:`, error);
     return null;
   }
@@ -425,6 +501,7 @@ async function collectAllCommandFiles(): Promise<string[]> {
 // 扫描 commands 目录
 export async function scanCommands(forceRefresh: boolean = false): Promise<Command[]> {
   const cacheKey = 'commands';
+
   if (!forceRefresh) {
     const cached = getCached<Command[]>(cacheKey);
     if (cached) return cached;
@@ -463,9 +540,4 @@ export async function scanAll(forceRefresh: boolean = false): Promise<{
   ]);
 
   return { skills, agents, commands };
-}
-
-// 清除缓存
-export function clearCache(): void {
-  cache.clear();
 }

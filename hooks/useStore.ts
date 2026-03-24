@@ -2,18 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Skill, Agent, Command } from '../lib/types';
-
-// Merge local and Claude Code usage counts
-function mergeUsageCount(
-  local: Record<string, number>,
-  claude: Record<string, number>
-): Record<string, number> {
-  const merged = { ...local };
-  for (const [skillId, count] of Object.entries(claude)) {
-    merged[skillId] = (merged[skillId] || 0) + count;
-  }
-  return merged;
-}
+import { mergeUsageCount } from '../lib/claude-usage';
 
 export interface AppState {
   favorites: string[]; // Skill IDs
