@@ -171,6 +171,47 @@ git push
 
 ---
 
+## 开发规范
+
+### 客户端组件限制 ⚠️
+
+**带有 `'use client'` 指令的组件不能导入使用 Node.js 模块的文件。**
+
+Node.js 模块包括：`fs`, `path`, `os`, `child_process`, `crypto` 等。
+
+**常见错误**：
+```
+Module not found: Can't resolve 'fs'
+```
+
+**示例**：
+
+```typescript
+// ❌ 错误 - 客户端组件导入了使用 fs 的模块
+// hooks/useStore.ts (带有 'use client')
+import { mergeUsageCount } from '../lib/claude-usage';  // claude-usage.ts 使用了 fs！
+```
+
+```typescript
+// ✅ 正确 - 将使用 Node.js 模块的代码保留在服务端
+// 将纯函数（如 mergeUsageCount）保留在客户端组件本地定义
+// hooks/useStore.ts
+function mergeUsageCount(local, claude) {
+  const merged = { ...local };
+  for (const [skillId, count] of Object.entries(claude)) {
+    merged[skillId] = (merged[skillId] || 0) + count;
+  }
+  return merged;
+}
+```
+
+**原则**：
+1. 客户端组件（`'use client'`）只能导入不包含 Node.js 模块的代码
+2. 包含 `fs`、`path`、`os` 等的模块只能在服务端组件或 API Route 中使用
+3. 纯算法/工具函数（如对象合并、字符串处理）应保留在客户端组件本地，避免被迫导入整个 Node.js 依赖链
+
+---
+
 ## 项目文件结构
 
 ```
