@@ -210,6 +210,86 @@ function mergeUsageCount(local, claude) {
 2. 包含 `fs`、`path`、`os` 等的模块只能在服务端组件或 API Route 中使用
 3. 纯算法/工具函数（如对象合并、字符串处理）应保留在客户端组件本地，避免被迫导入整个 Node.js 依赖链
 
+### TypeScript 类型定义 ⚠️
+
+**安装新的 npm 包时，如果包是 JavaScript 编写的，需要同时安装对应的 `@types/` 包。**
+
+常见类型包：
+- `@types/node` - Node.js 模块
+- `@types/react` - React
+- `@types/js-yaml` - js-yaml
+
+```bash
+# 安装示例
+npm install --save-dev @types/js-yaml
+```
+
+**不安装类型定义可能导致 CI 构建失败**，即使本地 `npx tsc --noEmit` 通过。
+
+### 并行处理优先
+
+**多个独立操作应使用 `Promise.all()` 并行处理，而非 for...of 串行。**
+
+```typescript
+// ❌ 错误 - 串行处理，速度慢
+for (const file of files) {
+  const result = await processFile(file);
+  results.push(result);
+}
+
+// ✅ 正确 - 并行处理，速度快
+const results = await Promise.all(files.map(processFile));
+```
+
+### 代码简洁性
+
+**避免不必要的代码结构：**
+
+```typescript
+// ❌ 错误 - Object.entries() 只用 key 时不应解构 value
+for (const [groupName] of Object.entries(skillGroups)) {
+  // groupName 是 key，value 被忽略
+}
+
+// ✅ 正确 - 直接用 Object.keys()
+for (const groupName of Object.keys(skillGroups)) {
+```
+
+```typescript
+// ❌ 错误 - 冗余的条件判断
+{title && (
+  <div>
+    {title && <h2>{title}</h2>}  // 内部已判断 title
+  </div>
+)}
+
+// ✅ 正确 - 只在最外层判断
+{title && (
+  <div>
+    <h2>{title}</h2>
+  </div>
+)}
+```
+
+### 硬编码数字
+
+**使用有意义的常量替代魔数，提高可维护性：**
+
+```typescript
+// ❌ 错误 - 魔数
+if (results.length < 4) { ... }
+.slice(0, 3)
+const hotSkills = getHotSkills(allSkills, stats, 6)
+
+// ✅ 正确 - 命名常量
+const MIN_RECOMMENDATIONS = 4;
+const TOP_SKILLS_LIMIT = 3;
+const HOT_SKILLS_FALLBACK = 6;
+if (results.length < MIN_RECOMMENDATIONS) { ... }
+.slice(0, TOP_SKILLS_LIMIT)
+const hotSkills = getHotSkills(allSkills, stats, HOT_SKILLS_FALLBACK)
+```
+
 ---
 
 ## 项目文件结构
