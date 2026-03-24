@@ -290,6 +290,63 @@ if (results.length < MIN_RECOMMENDATIONS) { ... }
 const hotSkills = getHotSkills(allSkills, stats, HOT_SKILLS_FALLBACK)
 ```
 
+### 纯函数与参数传递
+
+**函数应通过参数接收依赖，而非隐式调用环境相关的 API。**
+
+```typescript
+// ❌ 问题 - 隐式依赖 localStorage
+// recommend.ts (可能是服务端或客户端)
+const usageData = loadUsageData();  // 服务端返回空数据！
+const hotSkills = getHotSkills(allSkills, usageData.stats, 6);
+```
+
+```typescript
+// ✅ 正确 - 由调用方决定数据来源
+// recommendSkills(recommend.ts)
+const usageData = loadUsageData();  // 客户端显式调用
+const hotSkills = getHotSkills(allSkills, usageData.stats, 6);
+
+// 或将数据作为参数传入
+export function recommendSkills(task: string, allSkills: Skill[], usageStats?: Record<string, number>): Skill[]
+```
+
+**原则**：
+- 纯算法函数（如合并统计、计算分数）应通过参数接收数据
+- 调用方负责获取数据（根据环境选择正确的数据源）
+- 避免在通用函数中隐式调用 `localStorage`、`window`、`document` 等浏览器 API
+
+### 代码复用原则
+
+**复用前先搜索，重复定义要避免：**
+
+```typescript
+// ✅ 正确 - 复用已有函数
+import { mergeUsageCount } from '../lib/claude-usage';
+
+// ❌ 问题 - 完全相同的代码在两个文件中
+// lib/claude-usage.ts 和 hooks/useStore.ts 都有 mergeUsageCount
+```
+
+**原则**：
+1. 实现新功能前，先搜索项目中是否已有类似函数
+2. 相同的逻辑只定义一次，通过导入复用
+3. 注意导入链路是否引入不需要的依赖（如 `fs`）
+
+### AI 代理结果需验证
+
+**AI 代理（如 code review、simplify）的发现只是参考，需要人工验证后再修改。**
+
+审查代理可能产生误报：
+- 报告"重复定义"的函数，实际只有一处定义
+- 报告"性能问题"的代码，实际运行正常
+- 报告"可复用"的函数，实际场景不适用
+
+**原则**：
+- 代理的每个建议都需要确认
+- 修改前先理解代码逻辑
+- 有疑问时查看原始代码
+
 ---
 
 ## 项目文件结构
