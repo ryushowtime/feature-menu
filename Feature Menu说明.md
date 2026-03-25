@@ -333,6 +333,35 @@ import { mergeUsageCount } from '../lib/claude-usage';
 2. 相同的逻辑只定义一次，通过导入复用
 3. 注意导入链路是否引入不需要的依赖（如 `fs`）
 
+### 数据格式一致性 ⚠️
+
+**多个数据源合并时，需要确保 key 格式一致。**
+
+常见场景：
+- Hook 记录的 skill ID vs Scanner 生成的 ID
+- 不同 API 返回的数据结构
+
+**原则**：
+1. 合并前明确各数据源的 key 格式
+2. 如格式不一致，需要转换后再匹配
+3. 避免直接用 `id` 或 `name` 盲目匹配
+
+```typescript
+// ❌ 问题 - 不同数据源的 ID 格式不同，直接匹配失败
+// Hook 数据: { "brainstorming": 3 }
+// Scanner 数据: { id: "brainstorming@skills-ecc/...", name: "brainstorming" }
+const usage = mergedUsageCount[skill.id]; // 永远找不到！
+
+// ✅ 正确 - 提取名称后再匹配
+function extractSkillName(scannerId: string): string {
+  const atIndex = scannerId.indexOf('@');
+  return atIndex > 0 ? scannerId.substring(0, atIndex) : scannerId;
+}
+const usage = mergedUsageCount[extractSkillName(skill.id)];
+```
+
+---
+
 ### AI 代理结果需验证
 
 **AI 代理（如 code review、simplify）的发现只是参考，需要人工验证后再修改。**
