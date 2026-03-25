@@ -83,7 +83,7 @@ export function Agents() {
                     <Wrench className="h-3.5 w-3.5" /> 可用工具
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {agent.tools.map((tool) => (
+                    {agent.tools.map((tool, i) => (
                       <Badge key={`${agent.id}-${tool}`} variant="default" className="bg-card border border-border/50 text-xs py-1 text-muted-foreground hover:bg-[#a855f7]/10 hover:text-[#a855f7] hover:border-[#a855f7]/30 transition-colors">
                         {tool}
                       </Badge>

@@ -319,7 +319,7 @@ export async function scanSkills(forceRefresh: boolean = false): Promise<Skill[]
 }
 
 // 扫描单个 agent 文件
-async function scanAgentFile(agentPath: string, _rootPath: string): Promise<Agent | null> {
+async function scanAgentFile(agentPath: string, rootPath: string): Promise<Agent | null> {
   try {
     const content = await fs.readFile(agentPath, 'utf-8');
     const { data } = parseFrontmatter(content);
