@@ -84,7 +84,7 @@ export function Agents() {
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {agent.tools.map((tool, i) => (
-                      <Badge key={i} variant="default" className="bg-card border border-border/50 text-xs py-1 text-muted-foreground hover:bg-[#a855f7]/10 hover:text-[#a855f7] hover:border-[#a855f7]/30 transition-colors">
+                      <Badge key={`${agent.id}-${tool}`} variant="default" className="bg-card border border-border/50 text-xs py-1 text-muted-foreground hover:bg-[#a855f7]/10 hover:text-[#a855f7] hover:border-[#a855f7]/30 transition-colors">
                         {tool}
                       </Badge>
                     ))}

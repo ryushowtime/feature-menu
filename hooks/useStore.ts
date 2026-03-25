@@ -143,6 +143,16 @@ export const useStore = () => {
     });
   }, [skills]);
 
+  // Deduplicate agents by id (same agent may exist in multiple locations)
+  const uniqueAgents = useMemo(() => {
+    const seen = new Set<string>();
+    return agents.filter(a => {
+      if (seen.has(a.id)) return false;
+      seen.add(a.id);
+      return true;
+    });
+  }, [agents]);
+
   // Create an array with usage counts for charts and ranking
   const skillsWithUsage = uniqueSkills.map(s => ({
     ...s,
@@ -173,8 +183,8 @@ export const useStore = () => {
 
   return {
     state,
-    skills,
-    agents,
+    skills: uniqueSkills,  // 使用去重后的数据，避免 React key 重复警告
+    agents: uniqueAgents,  // 使用去重后的数据，避免 React key 重复警告
     commands,
     isLoading,
     toggleFavorite,

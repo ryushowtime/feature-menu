@@ -90,17 +90,21 @@ export function clearCache(): void {
   cache.clear();
 }
 
-// 收集所有 skill 目录
-async function collectAllSkillDirs(): Promise<string[]> {
+// 收集所有 skill 目录，返回 dir -> root 映射
+async function collectAllSkillDirs(): Promise<Map<string, string>> {
   const roots = getAllRoots();
-  const allDirs: string[] = [];
+  const dirToRoot = new Map<string, string>();
 
   for (const root of roots) {
     const dirs = await findSkillDirs(root);
-    allDirs.push(...dirs);
+    for (const dir of dirs) {
+      if (!dirToRoot.has(dir)) {
+        dirToRoot.set(dir, root);
+      }
+    }
   }
 
-  return [...new Set(allDirs)];
+  return dirToRoot;
 }
 
 // 验证 frontmatter 必需字段
@@ -207,7 +211,7 @@ function extractWhenToUse(body: string): string {
 }
 
 // 扫描单个技能文件
-async function scanSkillFile(skillPath: string): Promise<Skill | null> {
+async function scanSkillFile(skillPath: string, rootPath: string): Promise<Skill | null> {
   try {
     const content = await fs.readFile(skillPath, 'utf-8');
     const { data, body } = parseFrontmatter(content);
@@ -221,8 +225,12 @@ async function scanSkillFile(skillPath: string): Promise<Skill | null> {
     const category = getCategory(dirName);
     const level = getLevel(dirName);
 
+    // 使用 root 相对路径生成唯一 ID，避免不同 root 下的同名 skill 重复
+    const relativePath = path.relative(rootPath, skillPath).replace(/[/\\]/g, '-');
+    const uniqueId = `${dirName}@${relativePath}`;
+
     return {
-      id: dirName,
+      id: uniqueId,
       name: data.name || getDefaultValue('name', dirName),
       description: data.description || getDefaultValue('description', '暂无描述'),
       category: category,
@@ -244,8 +252,12 @@ async function scanSkillFile(skillPath: string): Promise<Skill | null> {
       const category = getCategory(dirName);
       const level = getLevel(dirName);
 
+      // 使用 root 相对路径生成唯一 ID
+      const relativePath = path.relative(rootPath, skillPath).replace(/[/\\]/g, '-');
+      const uniqueId = `${dirName}@${relativePath}`;
+
       return {
-        id: dirName,
+        id: uniqueId,
         name: partialData.name || getDefaultValue('name', dirName),
         description: partialData.description || getDefaultValue('description', '暂无描述'),
         category: category,
@@ -273,23 +285,24 @@ export async function scanSkills(forceRefresh: boolean = false): Promise<Skill[]
   const skills: Skill[] = [];
 
   try {
-    const skillDirs = await collectAllSkillDirs();
+    const dirToRoot = await collectAllSkillDirs();
     console.log('[DEBUG] ===== scanSkills() start =====');
     console.log('[DEBUG] Roots:', getAllRoots());
-    console.log('[DEBUG] Skill directories found:', skillDirs.length);
-    skillDirs.forEach((d, i) => console.log(`  [${i}] ${d}`));
+    console.log('[DEBUG] Skill directories found:', dirToRoot.size);
 
-    const allSkillFiles: string[] = [];
-    for (const dir of skillDirs) {
+    const allSkillFiles: Array<{ filePath: string; root: string }> = [];
+    for (const [dir, root] of dirToRoot) {
       const skillFile = path.join(dir, 'SKILL.md');
       try {
         fsSync.accessSync(skillFile);
-        allSkillFiles.push(skillFile);
+        allSkillFiles.push({ filePath: skillFile, root });
       } catch { /* skip */ }
     }
     console.log('[DEBUG] Total skill files found:', allSkillFiles.length);
 
-    const results = await Promise.all(allSkillFiles.map(scanSkillFile));
+    const results = await Promise.all(
+      allSkillFiles.map(({ filePath, root }) => scanSkillFile(filePath, root))
+    );
 
     for (const skill of results) {
       if (skill) {
@@ -306,7 +319,7 @@ export async function scanSkills(forceRefresh: boolean = false): Promise<Skill[]
 }
 
 // 扫描单个 agent 文件
-async function scanAgentFile(agentPath: string): Promise<Agent | null> {
+async function scanAgentFile(agentPath: string, rootPath: string): Promise<Agent | null> {
   try {
     const content = await fs.readFile(agentPath, 'utf-8');
     const { data } = parseFrontmatter(content);
@@ -317,10 +330,14 @@ async function scanAgentFile(agentPath: string): Promise<Agent | null> {
     }
 
     const fileName = path.basename(agentPath);
+    const baseId = fileName.replace('.md', '');
+
+    // 使用完整路径生成唯一 ID，确保不同 root 下的同名文件不会重复
+    const uniqueId = `${baseId}@${agentPath}`;
 
     return {
-      id: fileName.replace('.md', ''),
-      name: data.name || getDefaultValue('name', fileName.replace('.md', '')),
+      id: uniqueId,
+      name: data.name || getDefaultValue('name', baseId),
       description: data.description || getDefaultValue('description', '暂无描述'),
       tools: data.tools ? data.tools.split(',').map((t: string) => t.trim()) : [],
       model: data.model || getDefaultValue('model', 'sonnet'),
@@ -331,10 +348,14 @@ async function scanAgentFile(agentPath: string): Promise<Agent | null> {
       console.warn(`YAML parse warning for ${agentPath}: ${error.message}`);
       const partialData = error.partialData;
       const fileName = path.basename(agentPath);
+      const baseId = fileName.replace('.md', '');
+
+      // 使用完整路径生成唯一 ID
+      const uniqueId = `${baseId}@${agentPath}`;
 
       return {
-        id: fileName.replace('.md', ''),
-        name: partialData.name || getDefaultValue('name', fileName.replace('.md', '')),
+        id: uniqueId,
+        name: partialData.name || getDefaultValue('name', baseId),
         description: partialData.description || getDefaultValue('description', '暂无描述'),
         tools: partialData.tools ? partialData.tools.split(',').map((t: string) => t.trim()) : [],
         model: partialData.model || getDefaultValue('model', 'sonnet'),
@@ -372,21 +393,25 @@ async function findAgentFiles(dirPath: string, depth: number = 0, maxDepth: numb
   return files;
 }
 
-// 收集所有 agent 文件
-async function collectAllAgentFiles(): Promise<string[]> {
+// 收集所有 agent 文件，返回 filePath -> root 映射
+async function collectAllAgentFiles(): Promise<Map<string, string>> {
   const roots = getAllRoots();
-  const allFiles: string[] = [];
+  const fileToRoot = new Map<string, string>();
 
   for (const root of roots) {
     const agentsPath = path.join(root, 'agents');
     try {
       fsSync.accessSync(agentsPath);
       const files = await findAgentFiles(agentsPath);
-      allFiles.push(...files);
+      for (const file of files) {
+        if (!fileToRoot.has(file)) {
+          fileToRoot.set(file, root);
+        }
+      }
     } catch { /* skip */ }
   }
 
-  return [...new Set(allFiles)];
+  return fileToRoot;
 }
 
 // 扫描 agents 目录
@@ -401,9 +426,11 @@ export async function scanAgents(forceRefresh: boolean = false): Promise<Agent[]
   const agents: Agent[] = [];
 
   try {
-    const agentFiles = await collectAllAgentFiles();
+    const fileToRoot = await collectAllAgentFiles();
 
-    const agentResults = await Promise.all(agentFiles.map(scanAgentFile));
+    const agentResults = await Promise.all(
+      Array.from(fileToRoot.entries()).map(([filePath, root]) => scanAgentFile(filePath, root))
+    );
     for (const agent of agentResults) {
       if (agent) {
         agents.push(agent);
