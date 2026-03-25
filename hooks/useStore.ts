@@ -15,6 +15,28 @@ function mergeUsageCount(
   return merged;
 }
 
+// 从 scanner 生成的 ID 中提取 skill 名称
+// 格式: "brainstorming@skills-ecc/superpowers/brainstorming-SKILL.md" -> "brainstorming"
+// 格式: "agent-reach@skills-agent-reach-SKILL.md" -> "agent-reach"
+function extractSkillName(scannerId: string): string {
+  const atIndex = scannerId.indexOf('@');
+  if (atIndex > 0) {
+    return scannerId.substring(0, atIndex);
+  }
+  return scannerId;
+}
+
+// 根据 skill 名称查找使用次数（支持 scanner ID 和纯名称两种格式）
+function lookupUsage(mergedUsageCount: Record<string, number>, scannerId: string): number {
+  // 先尝试直接匹配（纯名称格式）
+  if (mergedUsageCount[scannerId] !== undefined) {
+    return mergedUsageCount[scannerId];
+  }
+  // 再尝试从 scanner ID 提取名称后匹配
+  const skillName = extractSkillName(scannerId);
+  return mergedUsageCount[skillName] || 0;
+}
+
 export interface AppState {
   favorites: string[]; // Skill IDs
   usageCount: Record<string, number>; // Skill ID -> count (local only)
@@ -156,7 +178,7 @@ export const useStore = () => {
   // Create an array with usage counts for charts and ranking
   const skillsWithUsage = uniqueSkills.map(s => ({
     ...s,
-    usage: mergedUsageCount[s.id] || 0
+    usage: lookupUsage(mergedUsageCount, s.id)
   }));
 
   const recentlyUsed = skillsWithUsage
@@ -174,7 +196,11 @@ export const useStore = () => {
   const recentlyUsedSkills = useMemo(() => {
     return claudeRecent
       .slice(0, 5)
-      .map(id => skillsWithUsage.find(s => s.id === id))
+      .map(name => {
+        // claudeRecent contains pure skill names (e.g., "brainstorming")
+        // Find matching skill by extracting name from scanner ID
+        return skillsWithUsage.find(s => extractSkillName(s.id) === name);
+      })
       .filter((s): s is typeof skillsWithUsage[0] => s !== undefined);
   }, [claudeRecent, skillsWithUsage]);
 
