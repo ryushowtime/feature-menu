@@ -8,6 +8,44 @@
 
 ---
 
+## 架构概述
+
+```
+用户浏览器
+    ↓
+Next.js App (客户端)
+    ↓ fetch
+┌─────────────────────────────────────┐
+│  /api/scan   →  lib/scanner.ts     │  扫描本地 Skill/Agent/Command 文件
+│  /api/usage  →  读取 ~/.claude/    │  获取 Hook 记录的使用数据
+│               skills-usage.json     │
+└─────────────────────────────────────┘
+    ↓
+hooks/useStore.ts  (状态管理 + 数据合并)
+    ↓
+React 组件渲染 (Skills/Agents/Commands/Stats 页面)
+```
+
+**核心数据流**：
+1. `scanner.ts` 扫描本地文件，生成 Skill/Agent 列表
+2. `log-skill-usage.sh`（Hook 脚本）记录用户使用情况到 `~/.claude/skills-usage.json`
+3. `useStore.ts` 合并两个数据源，提供统一的查询接口
+4. React 组件消费数据并渲染页面
+
+**关键文件职责**：
+
+| 文件 | 职责 |
+|------|------|
+| `lib/scanner.ts` | 扫描本地文件系统，生成 Skill/Agent/Command 数据 |
+| `hooks/useStore.ts` | 状态管理，合并本地+Hook 数据，提供收藏/最近使用等 |
+| `lib/recommend.ts` | 任务推荐算法 |
+| `install/log-skill-usage.sh` | Hook 脚本，Skill 使用时自动写入 `skills-usage.json` |
+| `app/pages/Stats.tsx` | 统计页面，展示使用图表和排行榜 |
+| `app/api/scan/route.ts` | 扫描 API，调用 scanner.ts |
+| `app/api/usage/route.ts` | 使用量 API，读取 Hook 数据 |
+
+---
+
 ## 版本历史
 
 ### v1.0 - Skill 版本（效果不好，未采用）
